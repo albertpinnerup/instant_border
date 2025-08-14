@@ -1,112 +1,159 @@
-import React, { useRef } from "react";
-import { View, Image, StyleSheet, Dimensions } from "react-native";
+import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from "react";
+import { View, Image, StyleSheet } from "react-native";
 import { captureRef } from "react-native-view-shot";
 import * as MediaLibrary from "expo-media-library";
 import { GlobalSizes, SCREEN_WIDTH } from "../../styles/sizes";
 
 interface CanvasProps {
-    aspectRatio: number; // width/height ratio (e.g., 1 for square, 16/9 for widescreen)
-    image?: string; // URI of the image to display
-    width?: number; // Optional canvas width, defaults to screen width - padding
-    maxHeight?: number; // Maximum height for the canvas
+    aspectRatio: number;
+    image?: string;
+    imageAspectRatio?: number; // Add this to know the actual image aspect ratio
+    width?: number;
+    maxHeight?: number;
     backgroundSpacing: number;
+    borderWidth: number;
+    borderColor?: string;
+    backgroundColor: string;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({
-    aspectRatio,
-    image,
-    width = SCREEN_WIDTH - GlobalSizes.spacingSize,
-    maxHeight = SCREEN_WIDTH * 1.2, // Default max height is 120% of screen width
-    backgroundSpacing = 0,
-}) => {
-    const canvasRef = useRef<View>(null);
+export interface CanvasHandle {
+    exportToPhotoLibrary: () => Promise<boolean>;
+}
 
-    // Calculate initial dimensions
-    let calculatedHeight = width / aspectRatio;
-    let finalWidth = width;
-    let finalHeight = calculatedHeight;
+export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
+    (
+        {
+            aspectRatio,
+            image,
+            imageAspectRatio = 1, // Default to square if not provided
+            width = SCREEN_WIDTH - GlobalSizes.spacingSize,
+            maxHeight = SCREEN_WIDTH * 1.2,
+            backgroundSpacing = 0,
+            borderWidth = 0,
+            borderColor = "#fff",
+            backgroundColor = "#fff",
+        },
+        ref
+    ) => {
+        const canvasRef = useRef<View>(null);
+        // Track image load state so we only capture once it's ready
+        const [isImageLoaded, setIsImageLoaded] = useState(false);
+        const imageLoadedResolveRef = useRef<(() => void) | null>(null);
 
-    // If calculated height exceeds max height, scale down proportionally
-    if (calculatedHeight > maxHeight) {
-        finalHeight = maxHeight;
-        finalWidth = maxHeight * aspectRatio;
-    }
+        // Reset load state when image changes
+        useEffect(() => {
+            setIsImageLoaded(false);
+            imageLoadedResolveRef.current = null;
+        }, [image]);
 
-    const exportCanvas = async () => {
-        try {
-            // Request media library permissions
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status !== "granted") {
-                console.log("Permission denied");
-                return;
+        // Calculate canvas dimensions
+        const getCanvasDimensions = () => {
+            let calculatedHeight = width / aspectRatio;
+            let finalWidth = width;
+            let finalHeight = calculatedHeight;
+
+            if (calculatedHeight > maxHeight) {
+                finalHeight = maxHeight;
+                finalWidth = maxHeight * aspectRatio;
             }
 
-            // Check if canvas ref is available
-            if (!canvasRef.current) {
-                console.error("Canvas ref is not available");
-                return;
+            return { width: finalWidth, height: finalHeight };
+        };
+
+        const dimensions = getCanvasDimensions();
+
+        // Calculate the perfect image size to fit within available space
+        const getImageSize = () => {
+            const availableWidth = dimensions.width - backgroundSpacing * 2;
+            const availableHeight = dimensions.height - backgroundSpacing * 2;
+
+            // Calculate what size the image should be to fit perfectly
+            const widthBasedHeight = availableWidth / imageAspectRatio;
+            const heightBasedWidth = availableHeight * imageAspectRatio;
+
+            if (widthBasedHeight <= availableHeight) {
+                // Width is the limiting factor
+                return {
+                    width: availableWidth,
+                    height: widthBasedHeight,
+                };
+            } else {
+                // Height is the limiting factor
+                return {
+                    width: heightBasedWidth,
+                    height: availableHeight,
+                };
             }
+        };
 
-            // Capture the canvas
-            const uri = await captureRef(canvasRef.current, {
-                format: "png",
-                quality: 1.0,
-            });
+        const imageSize = getImageSize();
 
-            // Save to camera roll
-            await MediaLibrary.saveToLibraryAsync(uri);
-            console.log("Image saved to camera roll!");
-        } catch (error) {
-            console.error("Error saving image:", error);
-        }
-    };
+        // Expose export function
+        useImperativeHandle(ref, () => ({
+            exportToPhotoLibrary: async () => {
+                try {
+                    const { status } = await MediaLibrary.requestPermissionsAsync();
+                    if (status !== "granted") return false;
 
-    return (
-        <View style={styles.container}>
-            <View
-                ref={canvasRef}
-                style={[
-                    styles.canvas,
-                    {
-                        width: finalWidth,
-                        height: finalHeight,
+                    if (!canvasRef.current) return false;
+
+                    if (image && !isImageLoaded) {
+                        await new Promise<void>((resolve) => {
+                            imageLoadedResolveRef.current = resolve;
+                        });
+                    }
+
+                    // Wait 2 frames to ensure layout/rasterization are finalized
+                    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+                    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+                    const uri = await captureRef(canvasRef.current, {
+                        format: "png",
+                        quality: 1.0,
+                        useRenderInContext: true,
+                    });
+
+                    await MediaLibrary.saveToLibraryAsync(uri);
+                    return true;
+                } catch (error) {
+                    console.error("Export failed:", error);
+                    return false;
+                }
+            },
+        }));
+
+        return (
+            <View style={{ alignItems: "center", justifyContent: "center" }}>
+                <View
+                    ref={canvasRef}
+                    collapsable={false}
+                    style={{
+                        width: dimensions.width,
+                        height: dimensions.height,
+                        backgroundColor: backgroundColor,
+                        alignItems: "center",
+                        justifyContent: "center",
                         padding: backgroundSpacing,
-                    },
-                ]}
-            >
-                {image && (
-                    <Image
-                        source={{ uri: image }}
-                        style={[
-                            styles.image,
-                            {
-                                width: finalWidth - backgroundSpacing * 2,
-                                height: finalHeight - backgroundSpacing * 2,
-                                top: backgroundSpacing,
-                                left: backgroundSpacing,
-                            },
-                        ]}
-                        resizeMode="contain"
-                    />
-                )}
+                    }}
+                >
+                    {image && (
+                        <Image
+                            source={{ uri: image }}
+                            style={{
+                                width: imageSize.width,
+                                height: imageSize.height,
+                                borderWidth: borderWidth,
+                                borderColor: borderColor,
+                            }}
+                            onLoadEnd={() => {
+                                setIsImageLoaded(true);
+                                imageLoadedResolveRef.current?.();
+                                imageLoadedResolveRef.current = null;
+                            }}
+                        />
+                    )}
+                </View>
             </View>
-        </View>
-    );
-};
-
-const styles = StyleSheet.create({
-    container: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    canvas: {
-        backgroundColor: "#000",
-        overflow: "hidden",
-        position: "relative",
-        // padding: GlobalSizes.spacingSize,
-    },
-    image: {
-        position: "absolute",
-        // top and left are now set dynamically via inline styles
-    },
-});
+        );
+    }
+);
