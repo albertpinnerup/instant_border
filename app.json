@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "instant_border",
+    "slug": "instant_border",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.albertpinnerup.instant-border",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to let you select images for your canvas.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save your canvas creations to your photo library."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.albertpinnerup.instant_border"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
