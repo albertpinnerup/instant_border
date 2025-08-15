@@ -174,7 +174,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
             exportToPhotoLibrary: async (onProgress?: (progress: number) => void) => {
                 try {
                     onProgress?.(5); // Starting process
-                    await new Promise(resolve => setTimeout(resolve, 200)); // Give UI time to update
+                    await new Promise((resolve) => setTimeout(resolve, 200)); // Give UI time to update
 
                     if (!skiaImage) {
                         console.warn("No Skia image available");
@@ -182,7 +182,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     }
 
                     onProgress?.(15); // Image validation complete
-                    await new Promise(resolve => setTimeout(resolve, 100));                    // Cap the resolution to prevent memory issues while maintaining original megapixel count
+                    await new Promise((resolve) => setTimeout(resolve, 100)); // Cap the resolution to prevent memory issues while maintaining original megapixel count
                     const MAX_DIMENSION = 6000; // Higher cap but with megapixel limit below
                     const MAX_MEGAPIXELS =
                         originalImageWidth && originalImageHeight
@@ -226,7 +226,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     );
 
                     onProgress?.(35); // Calculations complete
-                    await new Promise(resolve => setTimeout(resolve, 150));
+                    await new Promise((resolve) => setTimeout(resolve, 150));
 
                     const scale = preview.innerW > 0 ? exportWidth / preview.innerW : 1;
 
@@ -235,7 +235,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     const exportBorderW = Math.round(borderWidth * scale);
 
                     onProgress?.(45); // Creating surface
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise((resolve) => setTimeout(resolve, 100));
 
                     const surface = Skia.Surface.MakeOffscreen(exportCanvasW, exportCanvasH);
                     if (!surface) {
@@ -272,7 +272,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     }
 
                     onProgress?.(55); // Drawing image
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise((resolve) => setTimeout(resolve, 200));
 
                     // Draw image
                     const pImage = Skia.Paint();
@@ -291,7 +291,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     );
 
                     onProgress?.(70); // Creating snapshot
-                    await new Promise(resolve => setTimeout(resolve, 150));
+                    await new Promise((resolve) => setTimeout(resolve, 150));
 
                     // Snapshot & encode
                     const png = surface.makeImageSnapshot()?.encodeToBytes();
@@ -301,7 +301,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     }
 
                     onProgress?.(80); // Encoding image
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise((resolve) => setTimeout(resolve, 100));
 
                     // Convert to base64 properly
                     const base64 = uint8ArrayToBase64(png);
@@ -312,7 +312,7 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
                     });
 
                     onProgress?.(90); // Saving to library
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise((resolve) => setTimeout(resolve, 100));
 
                     // Media library permission
                     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -334,12 +334,12 @@ export const SkiaCanvas = forwardRef<CanvasHandle, CanvasProps>(
             captureImage: async (onProgress?: (progress: number) => void) => {
                 try {
                     onProgress?.(5);
-                    await new Promise(resolve => setTimeout(resolve, 150));
+                    await new Promise((resolve) => setTimeout(resolve, 150));
 
                     if (!skiaImage) return null;
 
                     onProgress?.(25);
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise((resolve) => setTimeout(resolve, 100));
 
                     const exportCanvasW = Math.max(1, Math.round(preview.canvasW));
                     const exportCanvasH = Math.max(1, Math.round(preview.canvasH));

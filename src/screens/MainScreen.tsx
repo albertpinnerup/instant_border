@@ -105,7 +105,7 @@ export const MainScreen = () => {
         setLoadingMessage("Initializing...");
 
         // Give the UI time to show the loader
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         try {
             const success = await canvasRef.current?.exportToPhotoLibrary((progress: number) => {
@@ -154,7 +154,7 @@ export const MainScreen = () => {
         setLoadingMessage("Initializing...");
 
         // Give the UI time to show the loader
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         try {
             // Capture the current canvas state for sharing
