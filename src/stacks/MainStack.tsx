@@ -2,6 +2,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { MainScreen } from "../screens/MainScreen";
 import { SCREEN_WIDTH } from "../styles/sizes";
 import HeaderStatusbarOnly from "../components/headers/HeaderStatusbarOnly";
+import HeaderWithShare from "../components/headers/HeaderWithShare";
 
 const Stack = createStackNavigator();
 

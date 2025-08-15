@@ -3,6 +3,9 @@ export const GlobalColors = {
     menuColor: "#F1F1F1",
     white: "#FFFFFF",
     black: "#000000",
+    grey: "#D9D9D9",
+    selected: "#009DFF",
+    selectedBg: "#009DFF26",
 
     primary: "#8C2A3C",
     secondary: "#6B7B3E",
