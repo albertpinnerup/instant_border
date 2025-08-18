@@ -261,8 +261,11 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                 }
             },
 
-            captureImage: async () => {
+            captureImage: async (onProgress?: (progress: number) => void) => {
                 try {
+                    onProgress?.(5);
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+
                     // Use high-res export for sharing if available
                     if (image && originalImageWidth && originalImageHeight) {
                         // Cap the resolution for sharing - maintain original megapixel count
@@ -291,14 +294,21 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                             exportHeight = Math.round(exportHeight * scale);
                         }
 
+                        onProgress?.(25);
+                        await new Promise((resolve) => setTimeout(resolve, 100));
+
                         // For very large images, use fallback
                         if (exportWidth * exportHeight > 20000000) {
                             // 20 megapixels (increased from 6MP)
+                            onProgress?.(50);
+
                             const targetRef =
                                 borderOnly && borderedRef.current
                                     ? borderedRef.current
                                     : canvasRef.current;
                             if (!targetRef) return null;
+
+                            onProgress?.(80);
 
                             const uri = await captureRef(targetRef, {
                                 format: "png",
@@ -306,8 +316,12 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                                 useRenderInContext: true,
                             });
 
+                            onProgress?.(100);
                             return uri;
                         }
+
+                        onProgress?.(40);
+                        await new Promise((resolve) => setTimeout(resolve, 100));
 
                         // Use high-res approach
                         setExportDimensions({ width: exportWidth, height: exportHeight });
@@ -321,9 +335,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                             requestAnimationFrame(() => resolve())
                         );
 
+                        onProgress?.(70);
+                        await new Promise((resolve) => setTimeout(resolve, 100));
+
                         if (!exportCanvasRef.current) {
                             throw new Error("Export canvas not available");
                         }
+
+                        onProgress?.(85);
 
                         const uri = await captureRef(exportCanvasRef.current, {
                             format: "png",
@@ -334,10 +353,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                         setIsExporting(false);
                         setExportDimensions(null);
 
+                        onProgress?.(100);
                         return uri;
                     }
 
                     // Fallback to normal capture
+                    onProgress?.(30);
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+
                     const targetRef =
                         borderOnly && borderedRef.current ? borderedRef.current : canvasRef.current;
                     if (!targetRef) return null;
@@ -348,9 +371,14 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                         });
                     }
 
+                    onProgress?.(60);
+                    await new Promise((resolve) => setTimeout(resolve, 100));
+
                     // Wait 2 frames to ensure layout/rasterization are finalized
                     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
                     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+                    onProgress?.(85);
 
                     const uri = await captureRef(targetRef, {
                         format: "png",
@@ -358,6 +386,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
                         useRenderInContext: true,
                     });
 
+                    onProgress?.(100);
                     return uri;
                 } catch (error) {
                     console.error("Capture failed:", error);

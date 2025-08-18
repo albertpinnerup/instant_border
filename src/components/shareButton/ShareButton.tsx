@@ -1,5 +1,6 @@
 import React from "react";
-import { Share, TouchableOpacity, Text, Alert } from "react-native";
+import { TouchableOpacity, Text, Alert } from "react-native";
+import * as Sharing from "expo-sharing";
 
 interface ShareButtonProps {
     imageUri?: string | null;
@@ -31,16 +32,19 @@ export const ShareButton = ({
         }
 
         try {
-            const result = await Share.share({
-                url: imageToShare,
-                message: "Check out this photo I created with instant borders!",
+            // Check if sharing is available
+            if (!(await Sharing.isAvailableAsync())) {
+                Alert.alert("Error", "Sharing is not available on this device");
+                return;
+            }
+
+            // Share with expo-sharing (preserves original quality)
+            await Sharing.shareAsync(imageToShare, {
+                mimeType: "image/png",
+                dialogTitle: "Share your instant border image",
             });
 
-            if (result.action === Share.sharedAction) {
-                console.log("Image shared successfully");
-            } else if (result.action === Share.dismissedAction) {
-                console.log("Share dismissed");
-            }
+            console.log("Image shared successfully");
         } catch (error) {
             console.error("Error sharing:", error);
             Alert.alert("Error", "Failed to share image. Please try again.");

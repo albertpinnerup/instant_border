@@ -90,7 +90,7 @@ export const ColorPickerWithSwatches: React.FC<Props> = ({
                 onPress={handlePressPicker}
                 style={{ paddingLeft: 2, opacity: borderOnly ? 0.5 : 1, alignSelf: "flex-start" }}
             >
-                <Image source={require("../../../assets/Gradient.png")} />
+                <Image source={require("assets/Gradient.png")} />
             </TouchableOpacity>
             <View
                 style={{

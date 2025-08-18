@@ -17,6 +17,8 @@ import { SpacingContainerSmall } from "../ui/SpacingContainerSmall";
 import { ShareButton } from "../components/shareButton/ShareButton";
 import { SkiaCanvas } from "../components/canvas/CanvasSkia";
 import { LoadingOverlay } from "../components/loadingOverlay/LoadingOverlay";
+import * as MediaLibrary from "expo-media-library";
+import * as FileSystem from "expo-file-system";
 
 export const MainScreen = () => {
     const [selectedImage, setSelectedImage] = useState<string | undefined>();
@@ -105,40 +107,87 @@ export const MainScreen = () => {
         setLoadingMessage("Initializing...");
 
         // Give the UI time to show the loader
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 10));
 
         try {
-            const success = await canvasRef.current?.exportToPhotoLibrary((progress: number) => {
-                setLoadingProgress(progress);
+            let capturedUri: string | null = capturedImageUri || null;
 
-                // Update message based on progress
-                if (progress < 30) {
-                    setLoadingMessage("Preparing image...");
-                } else if (progress < 60) {
-                    setLoadingMessage("Processing image...");
-                } else if (progress < 90) {
-                    setLoadingMessage("Creating final image...");
-                } else {
-                    setLoadingMessage("Saving to photo library...");
+            // Check if we can reuse existing captured image
+            if (capturedImageUri) {
+                try {
+                    // Verify the file still exists
+                    const fileInfo = await FileSystem.getInfoAsync(capturedImageUri);
+                    if (fileInfo.exists) {
+                        console.log("Reusing existing captured image for export");
+                        setLoadingMessage("Using cached image...");
+                        setLoadingProgress(50);
+                    } else {
+                        console.log("Cached image file no longer exists, will regenerate");
+                        setCapturedImageUri(null);
+                        capturedUri = null;
+                    }
+                } catch (error) {
+                    console.log("Error checking cached image file, will regenerate");
+                    setCapturedImageUri(null);
+                    capturedUri = null;
                 }
-            });
-
-            if (success) {
-                setLoadingMessage("Capturing for sharing...");
-                const capturedUri = await canvasRef.current?.captureImage();
-                setCapturedImageUri(capturedUri || null);
-
-                // Small delay to show completion
-                setTimeout(() => {
-                    setIsLoading(false);
-                    Alert.alert("Success", "Image saved to your photo library!");
-                }, 500);
-            } else {
-                setIsLoading(false);
-                Alert.alert("Error", "Failed to save image. Please try again.");
             }
+
+            // If no valid cached image exists, generate a new one
+            if (!capturedUri) {
+                setLoadingMessage("Creating image...");
+                capturedUri =
+                    (await canvasRef.current?.captureImage((progress: number) => {
+                        // Use 80% of progress bar for image creation
+                        const adjustedProgress = progress * 0.8;
+                        setLoadingProgress(adjustedProgress);
+
+                        if (adjustedProgress < 20) {
+                            setLoadingMessage("Preparing image...");
+                        } else if (adjustedProgress < 50) {
+                            setLoadingMessage("Processing image...");
+                        } else {
+                            setLoadingMessage("Creating final image...");
+                        }
+                    })) || null;
+
+                if (!capturedUri) {
+                    setIsLoading(false);
+                    Alert.alert("Error", "Failed to create image. Please try again.");
+                    return;
+                }
+
+                // Store the captured URI for future use
+                setCapturedImageUri(capturedUri);
+            }
+
+            // Now save it to photo library using the existing file
+            setLoadingProgress(85);
+            setLoadingMessage("Saving to photo library...");
+
+            // Request permission
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== "granted") {
+                setIsLoading(false);
+                Alert.alert("Permission required", "We need access to save photos.");
+                return;
+            }
+
+            setLoadingProgress(95);
+            await MediaLibrary.saveToLibraryAsync(capturedUri);
+
+            setLoadingProgress(100);
+            setLoadingMessage("Complete!");
+
+            // Small delay to show completion
+            setTimeout(() => {
+                setIsLoading(false);
+                Alert.alert("Success", "Image saved to your photo library!");
+            }, 500);
         } catch (error) {
+            console.error("Export error:", error);
             setIsLoading(false);
+            setCapturedImageUri(null);
             Alert.alert("Error", "Failed to save image. Please try again.");
         }
     };
@@ -146,9 +195,28 @@ export const MainScreen = () => {
     const handleShare = async () => {
         if (!selectedImage) {
             Alert.alert("No Image", "Please create an image first!");
-            return;
+            return null;
         }
 
+        // Check if we have a previously captured image that's still valid
+        if (capturedImageUri) {
+            try {
+                // Verify the file still exists
+                const fileInfo = await FileSystem.getInfoAsync(capturedImageUri);
+                if (fileInfo.exists) {
+                    console.log("Reusing existing captured image for sharing");
+                    return capturedImageUri;
+                } else {
+                    console.log("Captured image file no longer exists, will regenerate");
+                    setCapturedImageUri(null);
+                }
+            } catch (error) {
+                console.log("Error checking captured image file, will regenerate");
+                setCapturedImageUri(null);
+            }
+        }
+
+        // If no valid captured image exists, generate a new one
         setIsLoading(true);
         setLoadingProgress(0);
         setLoadingMessage("Initializing...");
@@ -172,9 +240,11 @@ export const MainScreen = () => {
             }
 
             setIsLoading(false);
+            return capturedUri || null;
         } catch (error) {
             setIsLoading(false);
             Alert.alert("Error", "Failed to prepare image for sharing.");
+            return null;
         }
     };
 
@@ -186,6 +256,45 @@ export const MainScreen = () => {
         "9:16": 9 / 16,
         "2:1": 2 / 1,
         "2:3": 2 / 3,
+    };
+
+    // Helper function to invalidate captured image when settings change
+    const invalidateCapturedImage = () => {
+        if (capturedImageUri) {
+            console.log("Canvas settings changed, invalidating captured image");
+            setCapturedImageUri(null);
+        }
+    };
+
+    // Add invalidation to all the setter functions
+    const setBorderWidthWithInvalidation = (value: number) => {
+        setBorderWidth(value);
+        invalidateCapturedImage();
+    };
+
+    const setBackgroundSpacingWithInvalidation = (value: number) => {
+        setBackgroundSpacing(value);
+        invalidateCapturedImage();
+    };
+
+    const setBackgroundColorWithInvalidation = (value: string) => {
+        setBackgroundColor(value);
+        invalidateCapturedImage();
+    };
+
+    const setBorderColorWithInvalidation = (value: string) => {
+        setBorderColor(value);
+        invalidateCapturedImage();
+    };
+
+    const setBorderOnlyModeWithInvalidation = (value: boolean) => {
+        setBorderOnlyMode(value);
+        invalidateCapturedImage();
+    };
+
+    const setAspectRatioWithInvalidation = (value: number) => {
+        setAspectRatio(value);
+        invalidateCapturedImage();
     };
 
     return (
@@ -257,14 +366,7 @@ export const MainScreen = () => {
                     </TouchableOpacity>
                 )}
 
-                {selectedImage && (
-                    <ShareButton
-                        onCaptureAndShare={async () => {
-                            const capturedUri = await canvasRef.current?.captureImage();
-                            return capturedUri || null;
-                        }}
-                    />
-                )}
+                {selectedImage && <ShareButton onCaptureAndShare={handleShare} />}
                 <SpacingContainer />
 
                 {/* border settings */}
@@ -307,7 +409,7 @@ export const MainScreen = () => {
                                             maximumValue={25}
                                             lowerLimit={0}
                                             upperLimit={25}
-                                            onValueChange={setBorderWidth}
+                                            onValueChange={setBorderWidthWithInvalidation}
                                             value={borderWidth}
                                             step={1}
                                             tapToSeek
@@ -319,7 +421,7 @@ export const MainScreen = () => {
 
                                 <ColorPickerWithSwatches
                                     initialColor={borderColor}
-                                    onColorChange={setBorderColor}
+                                    onColorChange={setBorderColorWithInvalidation}
                                 />
                                 <TouchableOpacity
                                     onPress={() => {
@@ -397,7 +499,7 @@ export const MainScreen = () => {
                                             maximumValue={100}
                                             lowerLimit={0}
                                             upperLimit={100}
-                                            onValueChange={setBackgroundSpacing}
+                                            onValueChange={setBackgroundSpacingWithInvalidation}
                                             value={backgroundSpacing}
                                             step={1}
                                             tapToSeek
@@ -410,7 +512,7 @@ export const MainScreen = () => {
 
                                 <ColorPickerWithSwatches
                                     initialColor={backgroundColor}
-                                    onColorChange={setBackgroundColor}
+                                    onColorChange={setBackgroundColorWithInvalidation}
                                     borderOnly={borderOnlyMode}
                                 />
                             </View>

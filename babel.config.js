@@ -11,6 +11,13 @@ module.exports = {
                 ]
             }
         ],
+        [
+            "module-resolver", {
+                "alias": {
+                    "assets": "./assets"
+                }
+            }
+        ],
         'react-native-reanimated/plugin', // This must be last
     ]
 };
